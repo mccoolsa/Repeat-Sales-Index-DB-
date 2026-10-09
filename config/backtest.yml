@@ -1,0 +1,46 @@
+# Lookup backtest and property prediction intervals.
+# Changing this file changes the backtest version.
+
+# This is a RETROSPECTIVE temporal backtest. The project has one present-day source
+# snapshot, so it cannot reconstruct when historical filings arrived; it does not measure
+# real-time (operational) performance.
+experiment: retrospective_temporal
+
+# Each evaluated pair's second sale is the "true" price; its first sale is the anchor. For
+# target year Y the index uses only pairs whose later sale is in or before Y (data a
+# release at the end of Y could have held), and never any pair of the evaluated property:
+# properties are split into folds and each fold is predicted from an index fitted
+# without it.
+folds: 5
+windows:                      # by target (second-sale) year
+  development: [2013, 2018]
+  calibration: [2019, 2022]   # prediction-interval quantiles are fitted here only
+  test: [2023, 2025]          # untouched final test; 2026 is incomplete and provisional
+frequency: annual             # Donegal supports annual series only
+
+# The lookup method and the simple baselines it must beat.
+methods:
+  local: "Fallback chain: town index where supported, else Donegal"
+  county: "Donegal index"
+  national_cso: "CSO national RPPI (published series; benefits from hindsight)"
+  nominal: "Unchanged price"
+  town_relaxed: "Diagnostic: town index with a 100-property floor (town properties only)"
+
+# Support required of a fold fit before it may adjust a price (same thresholds as the
+# publication gates; no bootstrap width check inside the backtest).
+min_series_properties: 300
+min_endpoint_pairs: 20
+# Diagnostic method "town_relaxed" (never used by the lookup): the town series with a lower
+# property floor, to measure whether a town index would beat Donegal for town properties.
+diagnostic_min_town_properties: 100
+
+intervals:
+  level: 0.90
+  horizon_bands:              # holding years [min, max)
+    - {band: "0-3y", min: 0, max: 3}
+    - {band: "3-6y", min: 3, max: 6}
+    - {band: "6y+", min: 6, max: 100}
+  min_calibration_pairs: 30
+  # A band whose test coverage falls below level - tolerance withholds the property
+  # estimate for that band (backtest gate).
+  coverage_tolerance: 0.05

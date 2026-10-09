@@ -1,0 +1,26 @@
+# Repeat-sales index estimation. Changing this file changes the fit version.
+
+population: headline            # included_headline pairs (second-hand to second-hand, D-007)
+sensitivity_populations:
+  with_new_first_leg: [included_headline, included_new_first_leg]
+
+frequencies: [quarterly, annual]
+base: "2015"                    # presentation base: mean of the 2015 index levels = 100
+
+variance_model:
+  form: linear                  # variance_i = a + b * holding_years_i, a, b >= 0 (non-negative LS)
+  floor_quantile: 0.05          # variance floor: 5th percentile of fitted variances
+  min_floor: 1.0e-4
+  weight_cap_multiple: 10.0     # no pair may weigh more than 10x the median weight
+
+robust:
+  huber_t: 1.345                # statsmodels HuberT tuning constant
+  trim_quantiles: [0.01, 0.99]  # symmetric log-return trimming sensitivity
+
+geographies:
+  - id: scope
+    label: Whole profile scope (Donegal, or national)
+  - id: town:Letterkenny
+    label: Letterkenny (exploratory; publication decided in the uncertainty stage)
+    locality_name: Letterkenny
+    confidence: [high, medium]   # D-017: town indices use high and medium assignments only

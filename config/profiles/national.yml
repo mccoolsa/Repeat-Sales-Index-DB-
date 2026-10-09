@@ -1,0 +1,22 @@
+# National pipeline: every county. Databricks catalog ireland_rsi (tag
+# national-pipeline-2026-10-07 marks the state before profiles were introduced).
+name: national
+source: psra_ppr_national
+scope: "ppr:national"
+county_filter: null
+
+promotion_policy:
+  max_record_drop: 0.005       # hold a snapshot whose record count falls by more than 0.5%
+  min_retained_share: 0.98     # hold if under 98% of previous occurrences carry over
+
+storage:
+  local:
+    objects: data/store
+    warehouse: data/warehouse/ireland_rsi.duckdb
+  databricks:
+    catalog: ireland_rsi
+    objects: /Volumes/ireland_rsi/bronze/raw
+    staging: /Volumes/ireland_rsi/bronze/staging
+
+labels: config/labels.yml
+mlflow_experiment: ireland-rsi-linkage

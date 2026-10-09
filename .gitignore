@@ -1,0 +1,37 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Source downloads and bulk data stay out of Git (source downloads and credentials never enter the repository)
+data/
+raw/
+*.zip
+*.csv
+!tests/fixtures/**/*.csv
+
+# Credentials and local config
+.env
+.databrickscfg
+*.pem
+
+# Databricks / MLflow local artefacts
+.databricks/
+mlruns/
+spark-warehouse/
+
+# Generated reports are rebuilt from runs
+reports/*
+!reports/.gitkeep
+
+# Editor / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Build output (wheel built by databricks bundle deploy)
+dist/
+build/

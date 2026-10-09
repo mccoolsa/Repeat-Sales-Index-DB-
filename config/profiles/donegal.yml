@@ -1,0 +1,22 @@
+# Donegal pilot (D-005): the same national download, landed untouched, but only Donegal
+# rows enter bronze. Every later stage runs on Donegal only. Separate Databricks catalog.
+name: donegal
+source: psra_ppr_national
+scope: "ppr:county=Donegal"
+county_filter: Donegal
+
+promotion_policy:
+  max_record_drop: 0.01        # a single county is smaller, so allow slightly more variation
+  min_retained_share: 0.98
+
+storage:
+  local:
+    objects: data/store                      # content-addressed; safe to share
+    warehouse: data/warehouse/donegal.duckdb
+  databricks:
+    catalog: ireland_rsi_donegal
+    objects: /Volumes/ireland_rsi_donegal/bronze/raw
+    staging: /Volumes/ireland_rsi_donegal/bronze/staging
+
+labels: config/labels_donegal.yml
+mlflow_experiment: ireland-rsi-donegal-linkage

@@ -1,0 +1,32 @@
+# Property histories and repeat-sale pairs.
+# Changing this file changes the entity version.
+
+linkage_track: production        # Eircode helps identity for the index; evaluation uses address_only
+# Link-threshold gate (D-029, 2026-10-07), from 260 human labels of the Donegal sample, final property
+# links after constraints, weighted by inverse sampling probability:
+#   threshold 0.3: precision 98.1% (95% lower bound 95.6%), recall 77%
+#   threshold 0.5: precision 98.0% (95.5%), recall 75%   <- frozen
+#   threshold 0.7: precision 98.3% (95.8%), recall 72%
+#   threshold 0.9: precision 98.4% (93.5%), recall 45%
+# Precision is flat because the remaining false links score high; a higher threshold only
+# loses true links. 0.3 shifts 2015-2025 growth by -0.05 (validation flag). The 99% precision
+# aspiration is not met.
+accept_threshold: 0.5
+threshold_status: frozen
+
+constraints:
+  max_sales_per_property: 12     # more sales than this in 2010-2026 is implausible for one home
+  forbid_unit_conflict: true     # different unit IDs / primary numbers cannot share a property
+  forbid_eircode_conflict: true  # different valid Eircodes cannot share a property
+  forbid_same_day_price_conflict: true   # one property cannot sell twice in a day at different prices
+  # An address that is only a townland or town name (no number, unit or house name) does not
+  # identify one dwelling: several homes share it. Such sales link only on a shared valid
+  # Eircode. Found in the Donegal pilot: 9-sale "properties" like BALLYNESS, FALCARRAGH.
+  require_specific_address: true
+
+pairs:
+  bridge_non_comparable: false   # never pair across a non-market or unresolved sale
+  short_hold_years: 2.0          # proxy flag: "short-hold resale"
+  unusual_annual_log_change: 0.35  # proxy flag: |log return| / years above this (about +/-42% a year)
+  unusual_min_years: 0.5         # annualised rates are unstable below this; use total change instead
+  unusual_total_log_change: 0.7  # proxy flag for holds under unusual_min_years (about x2 or /2)

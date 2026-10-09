@@ -1,0 +1,34 @@
+# Project scope and model settings. Decision IDs refer to docs/decisions.md.
+
+pilot:
+  county: Donegal                 # D-005
+  lookup_locality: Letterkenny    # D-005
+  dense_urban_audit_county: Dublin  # D-005
+
+locality:
+  town_reference: cso_census_2022_built_up_areas   # D-011
+  townland_reference: tailte_eireann_townlands_2024
+
+databricks:
+  profile: ireland-rsi
+  catalog: ireland_rsi
+  raw_volume: /Volumes/ireland_rsi/bronze/raw
+
+sources:
+  ppr_snapshot: ppr-all-2026-10-06
+  ppr_contract: config/source_contract.yml
+
+analysis:
+  first_sale_date: 2010-01-01
+  frequency: quarterly            # D-006; annual/broader fallback
+  headline_population: second_hand_to_second_hand  # D-007
+  provisional_quarters: 1         # minimum; refine from observed filing lag
+
+uncertainty:
+  index_interval: 0.95            # starting default; calibrated in the uncertainty stage
+  property_interval: 0.90         # starting default; calibrated in the backtest stage
+  bootstrap_draws_dev: 200
+  bootstrap_draws_release: 1000
+
+seeds:
+  default: 20261006

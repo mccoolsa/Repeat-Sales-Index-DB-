@@ -1,0 +1,62 @@
+# CSO Residential Property Price Index benchmark contract (decision D-010).
+# Observed in acquisition cso-rppi-2026-10-06. Series codes are CSO PxStat category keys.
+# A benchmark is a comparison, not ground truth.
+
+benchmark_version: 1
+observed_in: cso-rppi-2026-10-06
+extraction:
+  api: "https://ws.cso.ie/public/api.restful/PxStat.Data.Cube_API.ReadDataset/{table}/JSON-stat/2.0/en"
+  format: JSON-stat 2.0
+  archive_to: data/raw/cso/{retrieval_date}/
+
+tables:
+  HPM09:
+    frequency: monthly
+    time_dimension: "TLIST(M1)"       # codes like "202607"
+    index_statistic: HPM09C01         # Residential Property Price Index, Base 2015=100
+    change_statistics: {m1: HPM09C02, m3: HPM09C03, m12: HPM09C04}   # percent; not used as levels
+    series_dimension: C02803V03373    # Type of Residential Property
+    series:
+      national_all: {code: "-", label: "National - all residential properties", from: "2005-01"}
+      national_houses: {code: "01", label: "National - houses", from: "2005-01"}
+      national_apartments: {code: "02", label: "National - apartments", from: "2005-01"}
+      national_ex_dublin_all: {code: "03", label: "National excluding Dublin - all residential properties", from: "2005-01"}
+      dublin_all: {code: "05", label: "Dublin - all residential properties", from: "2005-01"}
+      border_houses:
+        code: "21"
+        label: "Border - houses"
+        counties: [Cavan, Donegal, Leitrim, Monaghan, Sligo]   # CSO RPPI background notes
+        from: "2010-01"
+  HPQ01:
+    frequency: quarterly
+    time_dimension: "TLIST(Q1)"       # codes like "20262"
+    index_statistic: HPQ01C01         # Base 2015=100
+    series_dimension: C03346V04033    # Dwelling Status
+    series:
+      all_statuses: {code: "-", label: "All Dwelling Statuses", from: "2010Q1"}
+      new: {code: "01", label: "New", from: "2010Q1"}
+      existing: {code: "02", label: "Existing", from: "2010Q1"}
+
+# Comparisons. Compare growth rates, not levels.
+comparisons:
+  - ours: national_second_hand_quarterly
+    cso: HPQ01.existing
+    alignment: direct quarterly
+  - ours: national_all_quarterly
+    cso: HPM09.national_all
+    alignment: mean of three monthly levels per complete quarter
+  - ours: donegal_quarterly
+    cso: HPM09.border_houses
+    alignment: mean of three monthly levels per complete quarter
+    caveat: >
+      Geography differs (Donegal vs five-county Border region) and CSO is houses only;
+      PPR cannot separate houses from apartments. Indicative only.
+
+provisional_months: 3   # CSO states the latest three monthly results are provisional
+
+rejected_tables:
+  HPM06: "Base Jan 2005=100 and pre-2016 regional boundaries (e.g. 'Border excluding Louth')"
+  HPA06: "Annual, base Jan 2005=100, old regional boundaries"
+  HPA13: "Annual, base 2015=100; kept as a possible annual-fallback comparison, not archived yet"
+  HPM01: "Stale (last updated 2020)"
+  HPM04_HPM05_HPA03_HPA05: "Not inspected; titled 'Market-based Household Purchases' (transaction statistics, not RPPI indices)"

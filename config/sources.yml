@@ -1,0 +1,8 @@
+# Acquisition targets. Scope, county filter, promotion policy and storage are
+# per pipeline: see config/profiles/*.yml (national, donegal).
+
+sources:
+  psra_ppr_national:
+    source: psra_ppr
+    url: "https://www.propertypriceregister.ie/website/npsra/ppr/npsra-ppr.nsf/Downloads/PPR-ALL.zip/$FILE/PPR-ALL.zip"
+    expected_members: ["PPR-ALL.csv"]

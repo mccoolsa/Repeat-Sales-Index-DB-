@@ -1,0 +1,31 @@
+# Effective-dated VAT rules for VAT-exclusive new-dwelling prices.
+# A gross price is computed only when a rule resolves the rate; otherwise the sale is
+# VAT_RULE_UNRESOLVED and cannot be used as a comparable price.
+# Rounding: gross_cents = round_half_up(net_cents * (1 + rate)).
+
+version: vat-2026-10-06
+rounding: half_up_to_cent
+
+rules:
+  - id: VAT_RESIDENTIAL_13_5
+    from: 2010-01-01
+    to: 2025-10-07
+    rate: "0.135"
+    evidence: >
+      Reduced rate of 13.5% on new residential property throughout 2010 to 7 October 2025.
+      The PSRA information note states prices for new property are exclusive of VAT at 13.5%.
+      The 2020-21 temporary cut applied to the standard rate (23% to 21%) only, not 13.5%.
+
+  - id: VAT_QUALIFYING_APARTMENT_9_OR_13_5
+    from: 2025-10-08
+    to: 2030-12-31
+    rate_if_qualifying: "0.09"
+    rate_otherwise: "0.135"
+    evidence: >
+      Revenue Tax and Duty Manual 'Supply and Construction of Qualifying Apartments and
+      Apartment Blocks' (created December 2025): second reduced rate (9%) for qualifying
+      apartments in a qualifying block (multi-storey, at least three apartments with
+      grouped or common access) from 8 October 2025, extended scope from 26 November 2025
+      to 31 December 2030; other new apartments and houses remain at the reduced rate.
+      The register does not identify houses, apartments or qualifying blocks, so without
+      external evidence the rate is unresolved.

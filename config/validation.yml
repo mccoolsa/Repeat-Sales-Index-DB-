@@ -1,0 +1,76 @@
+# Validation against the CSO and methodological sensitivity.
+# Changing this file changes the validation version.
+
+# Archived CSO extracts, pinned by checksum (see data/raw/cso/<date>/manifest.json). The
+# comparison always uses these bytes, never a fresh download, so results are reproducible.
+cso_extract:
+  acquisition_id: cso-rppi-2026-10-06
+  files:
+    HPM09: {sha256: 8f781705d80fad7e756d4e7c17654883b4447e82abc4cc8fbd8ba5a11cd8c640}
+    HPQ01: {sha256: 5ed0f69b17ef8ccdb1240303dcd9d2a2d54b5aa5d4c8f81305b2a1abc18dd648}
+
+# Benchmarks per profile. Growth rates are compared, never levels alone.
+benchmarks:
+  donegal:
+    - geography_id: scope
+      frequency: annual
+      cso: {table: HPM09, series: border_houses}
+      caveat: Five-county Border region, houses only, hedonic; PPR includes apartments.
+    - geography_id: scope
+      frequency: quarterly
+      cso: {table: HPM09, series: border_houses}
+      caveat: Donegal quarterly is not published; shown for completeness only.
+    - geography_id: town:Letterkenny
+      frequency: annual
+      cso: {table: HPM09, series: border_houses}
+      caveat: Town against region; indicative only.
+  national:
+    - geography_id: scope
+      frequency: quarterly
+      cso: {table: HPQ01, series: existing}
+      caveat: Existing dwellings, household purchases only.
+    - geography_id: scope
+      frequency: annual
+      cso: {table: HPM09, series: national_all}
+      caveat: All residential, household purchases only.
+
+# Sensitivity experiments. Each is rebuilt from the same linkage scores with its own
+# settings; the baseline is the headline configuration.
+sensitivity:
+  geographies: [scope, town:Letterkenny]
+  frequency: annual
+  growth_window: ["2015", "2025"]      # cumulative growth reported for every variant
+  # Periods with fewer endpoint pairs are not compared (same rule as the publication gate);
+  # a variant that cannot support the whole window is compared on the widest common part.
+  min_endpoint_pairs: 20
+  example_anchor_price_eur: 200000     # illustrative lookup: a 2015 sale of this price in 2025
+  thresholds: [0.3, 0.5, 0.7, 0.9, 0.97, 0.99]
+  # Bootstrap draws for the final-link precision/recall intervals (link-threshold gate).
+  final_link_bootstrap: 2000
+  experiments:
+    - {id: baseline, description: "Headline: provisional threshold, WRS, second-hand pairs"}
+    - {id: deterministic_links, links: deterministic,
+       description: "Rule-based links only (exact or number+street agreement)"}
+    - {id: with_new_first_leg, decisions: [included_headline, included_new_first_leg],
+       description: "Add pairs whose first sale was a new build"}
+    - {id: method_ols, method: ols, description: "Unweighted repeat sales"}
+    - {id: method_huber, method: huber, description: "Huber robust estimate"}
+    - {id: method_trimmed, method: trimmed, description: "WRS after 1% tail trimming"}
+    - {id: exclude_unusual, exclude_flags: [unusual_change],
+       description: "Drop pairs flagged as unusual price change"}
+    - {id: exclude_short_hold, exclude_flags: [short_hold],
+       description: "Drop resales within two years"}
+    - {id: eircode_both_legs, subset: eircode_both,
+       description: "Only pairs where both sales carry the same valid Eircode"}
+    - {id: first_sale_from_2015, subset: from_2015,
+       description: "Only pairs whose first sale is in or after 2015 (Eircode era)"}
+    - {id: quarterly_to_annual, frequency: quarterly,
+       description: "Quarterly fit averaged to years"}
+
+  # A variant whose cumulative 2015-2025 log growth differs from the baseline by more than
+  # this is flagged for investigation (not dropped, not preferred).
+  flag_log_growth_shift: 0.05
+
+selection:
+  price_bands_eur: [0, 150000, 250000, 350000, 100000000]
+  top_localities: 8

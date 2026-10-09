@@ -1,0 +1,28 @@
+# Donegal labelling sample (Donegal pilot). Same design as config/labels.yml
+# with smaller quotas: about 260 pairs. Changing this file changes the sample version.
+
+sample_name: ls-donegal-2026-10-07
+seed: 20261007
+
+strata:
+  exact_address:
+    quota: 40
+  same_number_street:
+    quota: 60
+  apartment_unit_conflict:
+    quota: 30
+  rural_unnumbered:
+    quota: 70
+  similar_street_same_number:
+    quota: 40
+  neighbour_numbers:
+    quota: 20
+
+era_cutoff: 2015-01-01
+max_block_size: 300
+similar_street_min_jaccard: 0.5
+
+splits:
+  temporal_test_from: 2024-01-01
+  dev_share: 0.7
+double_review_share: 0.1

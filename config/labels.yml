@@ -1,0 +1,29 @@
+# Labelled-pair sample design. Changing this file changes the sample version.
+
+sample_name: ls-2026-10-06
+seed: 20261006
+
+# Pairs are two different sales (different sale_id, different sale date) of linkage-eligible
+# occurrences in the active snapshot. Strata are mutually exclusive, assigned in this order.
+strata:
+  exact_address:           # identical normalised address text
+    quota: 80
+  same_number_street:      # same street and primary number, address text differs
+    quota: 140
+  apartment_unit_conflict: # same building/street, both have unit numbers, units differ
+    quota: 100
+  rural_unnumbered:        # no numbers on either side, same first component (house or townland name)
+    quota: 120
+  similar_street_same_number: # same locality and number, different but overlapping street text
+    quota: 100
+  neighbour_numbers:       # same street and locality, house numbers differ by 1-2
+    quota: 60
+
+era_cutoff: 2015-01-01       # half of each stratum's quota from pairs whose earlier sale is before this
+max_block_size: 300          # blocks larger than this are left out of the frame (reported)
+similar_street_min_jaccard: 0.5
+
+splits:
+  temporal_test_from: 2024-01-01   # property groups with a later sale on/after this date
+  dev_share: 0.7                   # of remaining groups, by hash of the group ID
+double_review_share: 0.1           # pairs flagged for an independent second reviewer

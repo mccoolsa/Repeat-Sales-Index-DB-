@@ -1,0 +1,49 @@
+# Uncertainty and publication policy. Starting guardrails were design defaults,
+# calibrated against Donegal downsampling (docs/uncertainty_report.md). These are project
+# rules, not statistical guarantees or official standards.
+
+bootstrap:
+  draws_dev: 200
+  draws_release: 1000
+  seed: 20261007
+  interval: 0.95                # index confidence intervals (D-006 default)
+
+series_gates:                   # a series failing any of these is not published at all
+  # Calibrated on Donegal downsampling (annual, 17 years): 111 properties -> 70% bootstrap
+  # success, width 0.57; 222 -> 93%, 0.39; 366 -> 100%, 0.33; 554 -> 100%, 0.27. Below
+  # about 300 properties a full-period series is not stable. (Starting value: 100.)
+  min_properties: 300
+  min_effective_sample_size: 50
+  min_bootstrap_success: 0.95
+  max_property_weight_share: 0.05   # no single property may carry more than 5% of weight
+  require_base_identified: true
+
+period_gates:                   # a period failing these is suppressed within a published series
+  min_endpoint_pairs: 20
+  # 95% interval of the log level narrower than 0.30 (about +/-15%). In the Donegal
+  # downsampling, this width corresponds to a median RMS error of about 0.06-0.08 log
+  # points against the full-sample index.
+  max_log_interval_width: 0.30
+
+provisional_periods: 1          # newest period(s) marked provisional (the release stage refines this)
+
+# Fallback chain per lookup geography. The same series must cover both the anchor and the
+# target period: no division across geographies, no interpolation between frequencies.
+fallback:
+  town:Letterkenny:
+    - {geography: "town:Letterkenny", frequency: quarterly}
+    - {geography: "town:Letterkenny", frequency: annual}
+    - {geography: scope, frequency: quarterly}
+    - {geography: scope, frequency: annual}
+  scope:
+    - {geography: scope, frequency: quarterly}
+    - {geography: scope, frequency: annual}
+
+# Property estimates (backtest gate). The fallback chains above decide which index series the
+# lookup *shows*. For property *estimates*, the lookup backtest found that the Letterkenny
+# index did not beat the Donegal index for Letterkenny homes (median absolute error 28.8%
+# vs 24.2% on 135 test pairs; 23.9% vs 19.0% on 53 calibration pairs), so estimates use the
+# scope chain everywhere until a town index earns its place in a backtest.
+lookup:
+  estimate_chain: scope
+  stale_after_days: 45          # older releases are shown with a "source may be stale" note

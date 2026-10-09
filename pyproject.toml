@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ireland-rsi"
+version = "0.1.0"
+description = "Reproducible Irish residential repeat-sales house price index"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+# Library-style lower bounds so installing the wheel on Databricks serverless does not
+# replace the platform's numpy/pandas/pyarrow. Exact versions for local reproducibility
+# are in requirements-lock.txt; Databricks job environments pin duckdb/splink explicitly.
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "statsmodels>=0.14",
+    "pandas>=2.2",
+    "pyarrow>=15",
+    "duckdb>=1.1",
+    "splink>=5,<6",
+    "pyyaml>=6",
+]
+
+[project.optional-dependencies]
+databricks = [
+    "databricks-sdk>=0.40",
+    "databricks-sql-connector>=4",
+    "mlflow-skinny>=2.20",
+]
+app = ["streamlit>=1.40"]
+dev = ["pytest>=8", "ruff>=0.6"]
+# PDF reports and charts (docs/build_*.py, jobs/report_charts.py)
+reports = ["reportlab>=4", "matplotlib>=3.8"]
+
+[project.scripts]
+ireland-rsi-source-audit = "ireland_rsi.source_audit:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ireland_rsi"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

@@ -1,0 +1,89 @@
+# Named parsing, eligibility and review rules. Values are profiled in
+# docs/source_audit.md and docs/quality_report.md; changing anything here changes the
+# rule-set version automatically (hash of this file, vat_rules.yml and clean.py).
+
+rule_set: qr-2026-10-06
+
+scope:
+  first_sale_date: 2010-01-01      # register starts 1 January 2010
+  # Last valid date is the acquisition date of the snapshot being cleaned.
+
+# Republic of Ireland county vocabulary used by the register (26 values).
+counties: [Carlow, Cavan, Clare, Cork, Donegal, Dublin, Galway, Kerry, Kildare, Kilkenny,
+           Laois, Leitrim, Limerick, Longford, Louth, Mayo, Meath, Monaghan, Offaly,
+           Roscommon, Sligo, Tipperary, Waterford, Westmeath, Wexford, Wicklow]
+
+flags:
+  "Yes": true
+  "No": false
+
+# Observed description values, including Irish-language forms and one row whose fadas
+# were replaced by '?' at source.
+descriptions:
+  "Second-Hand Dwelling house /Apartment": {status: second_hand, language: en}
+  "New Dwelling house /Apartment": {status: new, language: en}
+  "Teach/Árasán Cónaithe Atháimhe": {status: second_hand, language: ga}
+  "Teach/Árasán Cónaithe Nua": {status: new, language: ga}
+  "Teach/?ras?n C?naithe Nua": {status: new, language: ga}
+
+# Coarse source bands only; never converted to floor area. 'gt_125' and 'gte_125' are
+# kept apart because the source wording changed.
+size_bands:
+  "": null
+  "less than 38 sq metres": lt_38
+  "greater than or equal to 38 sq metres and less than 125 sq metres": "38_to_125"
+  "greater than 125 sq metres": gt_125
+  "greater than or equal to 125 sq metres": gte_125
+  "níos mó ná nó cothrom le 38 méadar cearnach agus níos lú ná 125 méadar cearnach": "38_to_125"
+  "n?os l? n? 38 m?adar cearnach": lt_38
+
+# Review bounds (not validity bounds), from the market second-hand price distribution:
+# the 0.1th percentile is EUR 10,000 and the 99.95th about EUR 6m.
+price_review_bounds_eur:
+  low: 10000
+  high: 5000000
+
+# Portfolio and multi-unit filings: a single price split across, or attached to, many units.
+bulk_filing:
+  same_development_min_rows: 3    # same date, county, price and development text
+  same_day_price_min_rows: 10     # same date, county and price anywhere in the county
+multi_unit_address:
+  # A number range or list ("25-40", "6 and 8", "1 to 16") ...
+  range_pattern: '(?:^|[^0-9])[0-9]+[a-z]?\s*(?:-|to|&|&amp;|and)\s*[0-9]+[a-z]?(?:[^0-9]|$)'
+  # ... unless the address starts with its own unit ("APT 10, 18-21 MOUNT ST").
+  unit_prefix_pattern: '^\s*(?:apt|apartment|unit|flat|no)\b\.?\s*[0-9a-z]+'
+
+# Eircodes that are syntactically valid but are not property identifiers.
+# Found by the 3+ county rule on the national snapshot; listed so that single-county
+# pipelines (where that rule cannot fire) also reject them. A123456: 190 sales, 26 counties.
+eircode_placeholders: ["A123456", "A00AA00", "A65F4E2", "D06AY22", "D02R256"]
+eircode_max_counties: 2             # a real code cannot belong to 3+ counties
+
+# rule id -> severity and effect on the row's primary disposition.
+# Precedence: quarantine > excluded > pending_review > eligible.
+rules:
+  DATE_INVALID:            {severity: blocking, effect: quarantine}
+  DATE_BEFORE_SCOPE:       {severity: blocking, effect: quarantine}
+  DATE_AFTER_CUTOFF:       {severity: blocking, effect: quarantine}
+  PRICE_MISSING:           {severity: blocking, effect: quarantine}
+  PRICE_MALFORMED:         {severity: blocking, effect: quarantine}
+  PRICE_NOT_POSITIVE:      {severity: blocking, effect: quarantine}
+  COUNTY_UNKNOWN:          {severity: blocking, effect: quarantine}
+  ADDRESS_MISSING:         {severity: blocking, effect: quarantine}
+  MARKET_FLAG_UNKNOWN:     {severity: blocking, effect: quarantine}
+  VAT_FLAG_UNKNOWN:        {severity: blocking, effect: quarantine}
+  DESCRIPTION_UNKNOWN:     {severity: blocking, effect: quarantine}
+  NON_MARKET_SALE:         {severity: info, effect: excluded}
+  NEW_PRICE_BASIS_UNCERTAIN: {severity: warn, effect: excluded}
+  VAT_RULE_UNRESOLVED:     {severity: warn, effect: excluded}
+  VAT_FLAG_CONFLICT:       {severity: error, effect: pending_review}
+  PRICE_REVIEW_LOW:        {severity: warn, effect: pending_review}
+  PRICE_REVIEW_HIGH:       {severity: warn, effect: pending_review}
+  POSSIBLE_BULK_FILING:    {severity: warn, effect: pending_review}
+  MULTI_UNIT_ADDRESS:      {severity: warn, effect: pending_review}
+  VAT_ADJUSTED:            {severity: info, effect: none}
+  EIRCODE_INVALID:         {severity: warn, effect: none}
+  EIRCODE_PLACEHOLDER:     {severity: warn, effect: none}
+  SIZE_UNKNOWN:            {severity: info, effect: none}
+  HTML_ENTITY_IN_ADDRESS:  {severity: info, effect: none}
+  DUPLICATE_OCCURRENCE:    {severity: info, effect: none}

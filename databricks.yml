@@ -1,0 +1,251 @@
+# Databricks Asset Bundle: deploys the ireland_rsi wheel, jobs and labelling app.
+# Two targets share the same code and differ only in profile, catalog and app:
+#   databricks bundle deploy                 # national  (catalog ireland_rsi)
+#   databricks bundle deploy -t donegal      # Donegal pilot (catalog ireland_rsi_donegal)
+#   databricks bundle run ingest_ppr [-t donegal]
+
+bundle:
+  name: ireland-rsi
+
+artifacts:
+  ireland_rsi_wheel:
+    type: whl
+    build: uv build --wheel
+    path: .
+
+variables:
+  profile:
+    description: Pipeline profile in config/profiles/<name>.yml
+    default: national
+  catalog:
+    description: Unity Catalog catalog the profile writes to
+    default: ireland_rsi
+  app_name:
+    description: Labelling app name (unique in the workspace)
+    default: ireland-rsi-labelling
+  label_sample_version:
+    description: Frozen labelling sample the app serves
+    default: "ls-2026-10-06+42e09aca"
+  lookup_app_name:
+    description: Lookup app name (unique in the workspace)
+    default: ireland-rsi-lookup
+  scope_label:
+    description: How the lookup app names the profile's whole area
+    default: Ireland
+  schedule_pause_status:
+    description: Monthly refresh schedule state (the national pipeline stays paused)
+    default: PAUSED
+
+targets:
+  dev:
+    # National pipeline. Kept as "dev" so its job and app IDs and history are preserved.
+    mode: development
+    default: true
+    workspace:
+      profile: ireland-rsi
+  donegal:
+    mode: development
+    workspace:
+      profile: ireland-rsi
+    variables:
+      profile: donegal
+      catalog: ireland_rsi_donegal
+      app_name: ireland-rsi-labelling-donegal
+      label_sample_version: "ls-donegal-2026-10-07+c677d906"
+      lookup_app_name: ireland-rsi-lookup-donegal
+      scope_label: Donegal
+      schedule_pause_status: UNPAUSED
+
+resources:
+  jobs:
+    ingest_ppr:
+      # Resource key kept as ingest_ppr so the national job ID and run history are preserved.
+      name: ireland-rsi refresh (${var.profile})
+      description: >
+        Profile ${var.profile}, catalog ${var.catalog}.
+        Ingestion: download the PSRA register, store the untouched bytes in a volume, land rows
+        in bronze, reconcile the snapshot and verify the rebuild (rebuild check).
+        Cleaning: parse into silver.sales with disposition accounting (accounting check).
+        Addresses: gazetteer and address features with routing-key validation (address-confidence check).
+        Linkage: candidate generation and Splink linkage for both tracks, logged to MLflow.
+        Property histories: constrained property histories and repeat-sale pairs with the pair audit
+        (accept threshold provisional until the link-threshold gate).
+        Index estimation: OLS, weighted repeat-sales (Case-Shiller), Huber and trimmed index fits.
+        Uncertainty: property-history bootstrap (1,000 draws), publication gates and fallback.
+        Validation: CSO growth comparison, label-based threshold precision, sensitivity grid.
+        Backtest: temporal grouped backtest and calibrated property prediction intervals.
+        Releases: gate check, immutable release and current-release pointer.
+      max_concurrent_runs: 1
+      timeout_seconds: 5400
+      # Monthly refresh after the PSRA's usual update. Unpaused once the link-threshold gate froze the link
+      # threshold (D-029); set pause_status: PAUSED to stop it.
+      schedule:
+        quartz_cron_expression: "0 0 6 10 * ?"
+        timezone_id: Europe/Dublin
+        pause_status: ${var.schedule_pause_status}
+      email_notifications:
+        on_failure:
+          - ${workspace.current_user.userName}
+      tasks:
+        - task_key: ingest_ppr
+          spark_python_task:
+            python_file: jobs/ingest_ppr.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}"]
+          environment_key: default
+        - task_key: clean_sales
+          depends_on:
+            - task_key: ingest_ppr
+          spark_python_task:
+            python_file: jobs/clean_sales.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}"]
+          environment_key: default
+        - task_key: build_addresses
+          depends_on:
+            - task_key: clean_sales
+          spark_python_task:
+            python_file: jobs/build_addresses.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}"]
+          environment_key: default
+        - task_key: linkage_address_only
+          depends_on:
+            - task_key: build_addresses
+          spark_python_task:
+            python_file: jobs/train_linkage.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}", --track, address_only]
+          environment_key: default
+        - task_key: linkage_production
+          depends_on:
+            - task_key: build_addresses
+          spark_python_task:
+            python_file: jobs/train_linkage.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}", --track, production]
+          environment_key: default
+        - task_key: build_pairs
+          depends_on:
+            - task_key: linkage_production
+          spark_python_task:
+            python_file: jobs/build_pairs.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}"]
+          environment_key: default
+        - task_key: fit_index
+          depends_on:
+            - task_key: build_pairs
+          spark_python_task:
+            python_file: jobs/fit_index.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}"]
+          environment_key: default
+        - task_key: index_uncertainty
+          depends_on:
+            - task_key: fit_index
+          spark_python_task:
+            python_file: jobs/index_uncertainty.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}"]
+          environment_key: default
+        - task_key: validate_index
+          depends_on:
+            - task_key: index_uncertainty
+          spark_python_task:
+            python_file: jobs/validate_index.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}"]
+          environment_key: default
+        - task_key: backtest_lookup
+          depends_on:
+            - task_key: validate_index
+          spark_python_task:
+            python_file: jobs/backtest_lookup.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}"]
+          environment_key: default
+        - task_key: publish_release
+          depends_on:
+            - task_key: backtest_lookup
+          spark_python_task:
+            python_file: jobs/publish_release.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}"]
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "4"
+            dependencies:
+              - ./dist/*.whl
+              - duckdb==1.5.6
+              - splink==5.0.0
+
+    label_sample:
+      name: ireland-rsi label sample (${var.profile}, on demand)
+      description: >
+        Labelling: build a frozen stratified labelling sample and Eircode weak labels for
+        profile ${var.profile}. Run once per labelling round; the app is pinned to a version.
+      max_concurrent_runs: 1
+      tasks:
+        - task_key: label_sample
+          spark_python_task:
+            python_file: jobs/label_sample.py
+            parameters: [--target, databricks, --project-root, "${workspace.file_path}",
+                         --profile, "${var.profile}"]
+          environment_key: default
+      environments:
+        - environment_key: default
+          spec:
+            environment_version: "4"
+            dependencies:
+              - ./dist/*.whl
+              - duckdb==1.5.6
+              - splink==5.0.0
+
+  apps:
+    labelling:
+      name: ${var.app_name}
+      description: "Same property? Human review of candidate sale pairs (${var.profile})"
+      source_code_path: ./app/labelling
+      config:
+        command: ["streamlit", "run", "app.py"]
+        env:
+          - name: DATABRICKS_WAREHOUSE_ID
+            value_from: sql-warehouse
+          - name: LABEL_SAMPLE_VERSION
+            value: ${var.label_sample_version}
+          - name: RSI_CATALOG
+            value: ${var.catalog}
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: 003cc5b18883bd14
+            permission: CAN_USE
+    lookup:
+      name: ${var.lookup_app_name}
+      description: "Property sale history and index-adjusted estimate (${var.profile})"
+      source_code_path: ./app/lookup
+      config:
+        command: ["streamlit", "run", "app.py"]
+        env:
+          - name: DATABRICKS_WAREHOUSE_ID
+            value_from: sql-warehouse
+          - name: RSI_CATALOG
+            value: ${var.catalog}
+          - name: RSI_SCOPE_LABEL
+            value: ${var.scope_label}
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: 003cc5b18883bd14
+            permission: CAN_USE
+
+  dashboards:
+    rsi_dashboard:
+      # AI/BI dashboard over the governed views in dashboards/queries.sql.
+      display_name: "Ireland repeat-sales index (${var.profile})"
+      file_path: ./dashboards/ireland_rsi.lvdash.json
+      warehouse_id: 003cc5b18883bd14
+      dataset_catalog: ${var.catalog}

@@ -1,0 +1,43 @@
+# PSRA Residential Property Price Register CSV contract.
+# Observed from acquisition ppr-all-2026-10-06 (see docs/source_audit.md).
+# Any change to header names, order or column set requires a new version entry;
+# never edit an existing version in place.
+
+contracts:
+  - contract_id: psra_ppr_csv
+    version: 1
+    observed_in: ppr-all-2026-10-06
+    encoding: cp1252          # 0x80 is the euro sign; strict decode, no replacement
+    delimiter: ","
+    quotechar: '"'
+    line_terminator: "\r\n"
+    header_rows: 1
+    date_format: "%d/%m/%Y"
+    fields:
+      - name: sale_date_raw
+        header: "Date of Sale (dd/mm/yyyy)"
+        required: true
+      - name: address_raw
+        header: "Address"
+        required: true
+      - name: county_raw
+        header: "County"
+        required: true
+      - name: eircode_raw
+        header: "Eircode"
+        required: false       # Column present, values effectively absent before 2021
+      - name: price_raw
+        header: "Price (€)"
+        required: true
+      - name: not_full_market_price_raw
+        header: "Not Full Market Price"
+        required: true
+      - name: vat_exclusive_raw
+        header: "VAT Exclusive"
+        required: true
+      - name: description_raw
+        header: "Description of Property"
+        required: true
+      - name: size_description_raw
+        header: "Property Size Description"
+        required: false       # 93% blank; never used to infer floor area

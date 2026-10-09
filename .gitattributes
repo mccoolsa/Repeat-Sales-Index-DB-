@@ -1,0 +1,5 @@
+# Test fixtures reproduce source bytes exactly (cp1252, CRLF); never convert them.
+tests/fixtures/** -text
+*.pdf binary
+*.png binary
+*.zip binary
